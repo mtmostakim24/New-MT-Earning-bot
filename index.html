@@ -78,7 +78,7 @@
   </div>
 
   <div class="card" id="earn" style="display:none;">
-    <div class="name">বিজ্ঞাপনগুলি দেখে উপার্জন করুন। টাস্কটি সম্পূর্ণ করতে 15 সেকেন্ড অপেক্ষা করুন এবং প্রতি টাস্কে $0.05 উপার্জন করুন!</div>
+    <div class="name">আপনি বিজ্ঞাপনগুলি দেখে উপার্জন করুন। টাস্কটি সম্পূর্ণ করতে ৩০ সেকেন্ড ads ঘুরাঘুরি করুন এবং প্রতি টাস্কে $0.05 উপার্জন করুন!</div>
     <h3>Today's Tasks</h3>
     <p>Total Tasks: <span id="etotal">50</span></p>
     <p>Completed: <span id="ecompleted">0</span></p>
@@ -166,12 +166,12 @@
     function startTask() {
       if (data.completed >= 50) return alert("You have completed all tasks for today!");
       const start = Date.now();
-      const ad = window.open("https://www.profitableratecpm.com/mzze4b78n?key=e3998055e23a80c5cbffb7d80a88c74c", "_blank");
+      const ad = window.open("https://data963.click/e64f9a4ee48c1bc37d7a/c48376d5a3/?placementName=default", "_blank");
       const check = setInterval(() => {
         if (ad.closed) {
           clearInterval(check);
           const duration = (Date.now() - start) / 1000;
-          if (duration >= 15) {
+          if (duration >= 30) {
             data.completed++;
             data.remaining--;
             data.todaysEarning += 0.05;
@@ -180,7 +180,7 @@
             updateDisplay();
             alert("✅ Task completed! $0.05 added.");
           } else {
-            alert("⏱️ You must view the ad for at least 15 seconds.");
+            alert("⏱️ You must view the ad for at least 30 seconds.");
           }
         }
       }, 500);
@@ -206,7 +206,7 @@
     function copyReferralLink() {
       const refLink = `https://t.me/MTEarning_Mini_Bot?start=ref_${userId}`;
       navigator.clipboard.writeText(refLink)
-        .then(() => alert("✅ আপনার রেফার লিংক কপি করা হয়েছে! 👫 রেফার করে অল্প সময়ে বেশি ইনকাম করতে চাইলে Facebook Video কমেন্ট বক্সে আপনার লিংক পেস্ট করুন !"))
+        .then(() => alert("✅ আপনার রেফার লিংক কপি করা হয়েছে! আপনি প্রতি রেফারে পাবেন $1 ডলার 👫 রেফার করে অল্প সময়ে বেশি ইনকাম করতে চাইলে আপনার বন্ধুদের কে আপনার লিংক শেয়ার করুন অথবা Facebook Video কমেন্ট বক্সে আপনার লিংক পেস্ট করুন !"))
         .catch(() => alert("Failed to copy link."));
     }
 
