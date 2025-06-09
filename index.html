@@ -47,9 +47,9 @@
 
   <div class="card" id="home-card">
     <h3 style="color: #007bff;">Today's Tasks</h3>
-    <p><b>Total Tasks:</b> <span id="total">50</span></p>
+    <p><b>Total Tasks:</b> <span id="total">20</span></p>
     <p><b>Completed:</b> <span id="completed">0</span></p>
-    <p><b>Remaining:</b> <span id="remaining">50</span></p>
+    <p><b>Remaining:</b> <span id="remaining">20</span></p>
     <div class="progress"><div class="bar" id="progress-bar"></div></div>
   </div>
 
@@ -78,11 +78,11 @@
   </div>
 
   <div class="card" id="earn" style="display:none;">
-    <div class="name">প্রথমে Start Earning বাটনে ক্লিক করুন, এরপর আমি রোবট নই এর ক্লিক করুন, এরপর নিচে Click Here to Continue বাটনে ক্লিক করুন, এরপর Click to verify বাটনে ক্লিক করুন, এরপর Continue বাটনে ক্লিক করুন, এরপর Generate Link বাটনে ক্লিক করে বের হবেন, পরের start Earning বাটনে ক্লিক করে Total Task গুলো এভাবে কমপ্লিট করবেন। প্রতি টাস্কে আপনি $0.05 পাবেন!</div>
+    <div class="name">প্রথমে Start Earning বাটনে ক্লিক করুন, বিজ্ঞাপনগুলি দেখে উপার্জন করুন। টাস্কটি সম্পূর্ণ করতে ৩০ সেকেন্ড অপেক্ষা করুন এবং প্রতি টাস্কে $0.09 উপার্জন করুন!</div>
     <h3>Today's Tasks</h3>
-    <p>Total Tasks: <span id="etotal">50</span></p>
+    <p>Total Tasks: <span id="etotal">20</span></p>
     <p>Completed: <span id="ecompleted">0</span></p>
-    <p>Remaining: <span id="eremaining">50</span></p>
+    <p>Remaining: <span id="eremaining">20</span></p>
     <div class="button" onclick="startTask()">Start Earning ▶</div>
     <div class="button" onclick="copyReferralLink()">Refer & Earn</div>
   </div>
@@ -120,11 +120,11 @@
     };
 
     let data = JSON.parse(localStorage.getItem("dailyEarningData")) || {
-      date: today, completed: 0, remaining: 50, todaysEarning: 0
+      date: today, completed: 0, remaining: 20, todaysEarning: 0
     };
 
     if (data.date !== today) {
-      data = { date: today, completed: 0, remaining: 50, todaysEarning: 0 };
+      data = { date: today, completed: 0, remaining: 20, todaysEarning: 0 };
     }
 
     if (ref && ref.startsWith("ref_")) {
@@ -164,9 +164,9 @@
     }
 
     function startTask() {
-      if (data.completed >= 50) return alert("You have completed all tasks for today!");
+      if (data.completed >= 20) return alert("You have completed all tasks for today!");
       const start = Date.now();
-      const ad = window.open("https://shrinkme.ink/DEQYDRy", "_blank");
+      const ad = window.open("https://www.profitableratecpm.com/y7my9aizec?key=0fd7a3fec9a14245c6c6195f254294db", "_blank");
       const check = setInterval(() => {
         if (ad.closed) {
           clearInterval(check);
@@ -174,11 +174,11 @@
           if (duration >= 30) {
             data.completed++;
             data.remaining--;
-            data.todaysEarning += 0.05;
-            userData.lifetimeEarning += 0.05;
+            data.todaysEarning += 0.09;
+            userData.lifetimeEarning += 0.09;
             updateStorage();
             updateDisplay();
-            alert("✅ Task completed! $0.05 added.");
+            alert("✅ Task completed! $0.09 added.");
           } else {
             alert("⏱️ You must view the ad for at least 30 seconds.");
           }
