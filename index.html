@@ -558,6 +558,21 @@
       border-left: 4px solid var(--warning);
     }
     
+    /* Loading Spinner */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
     /* Responsive */
     @media (min-width: 768px) {
       .cards-container {
@@ -788,7 +803,7 @@
           </div>
         </div>
         
-        <button class="button" onclick="startTask()">
+        <button class="button" onclick="startTask()" id="start-task-btn">
           <i class="fas fa-play"></i> Start Earning ▶
         </button>
       </div>
@@ -936,12 +951,13 @@
   
   <script>
     // Telegram Bot API configuration
-    const BOT_TOKEN = "7886120175:AAEq3IrdoIEVQ-rPV0o0HeByBpbzeL2buGE";
-    const BOT_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+    const BOT_TOKEN = "7811173242:AAGeYgntYuB906-hMhovnk5PE_pxHbtgFhs";
     
     // Global variables
     let userId, username, telegramId, referrerId;
     let userData, data;
+    let taskTimer = null;
+    let currentTaskStartTime = null;
     
     // Check for referral parameter in URL
     function getUrlParameter(name) {
@@ -961,6 +977,7 @@
       if (refParam) {
         referrerId = refParam;
         localStorage.setItem("referrerId", referrerId);
+        showNotification(`🎉 Welcome! You were referred by user ${referrerId}`, "success");
       } else {
         referrerId = localStorage.getItem("referrerId");
       }
@@ -979,21 +996,24 @@
             userId = "tg_" + user.id;
             
             if (user.username) {
-              username = user.username;
+              username = "@" + user.username;
             } else if (user.first_name) {
               username = user.first_name;
               if (user.last_name) username += " " + user.last_name;
             } else {
               username = "User" + user.id;
             }
+            
+            // Expand the WebApp to full height
+            window.Telegram.WebApp.expand();
           } else {
             // Fallback if user data not available
-            userId = "user_" + Math.floor(Math.random() * 1000000);
+            userId = "user_" + Math.floor(100000 + Math.random() * 900000);
             username = "User" + userId;
           }
         } else {
           // Not in Telegram environment
-          userId = "user_" + Math.floor(Math.random() * 1000000);
+          userId = "user_" + Math.floor(100000 + Math.random() * 900000);
           username = "User" + userId;
         }
         
@@ -1005,6 +1025,8 @@
         if (referrerId) {
           processReferral(referrerId, userId);
         }
+        
+        showNotification(`👋 Welcome ${username}! Your ID: ${userId}`, "success");
       }
       
       const today = new Date().toLocaleDateString();
@@ -1020,7 +1042,8 @@
         lifetimeEarning: 0,
         withdrew: 0,
         totalTasks: 0,
-        joinDate: new Date().toLocaleDateString()
+        joinDate: new Date().toLocaleDateString(),
+        referredBy: referrerId || null
       };
       
       // Update with current values
@@ -1035,6 +1058,7 @@
       
       if (data.date !== today) {
         data = { date: today, completed: 0, remaining: 100, todaysEarning: 0 };
+        showNotification("🔄 New day started! Complete tasks to earn money.", "success");
       }
       
       localStorage.setItem("MTEarningData", JSON.stringify(userData));
@@ -1049,63 +1073,58 @@
         // Get referrer's data
         let allUsersData = JSON.parse(localStorage.getItem("allUsersData")) || {};
         
-        if (allUsersData[referrerId]) {
-          // Update referrer's data
-          allUsersData[referrerId].pendingReferrals = (allUsersData[referrerId].pendingReferrals || 0) + 1;
-          
-          // Store updated data
-          localStorage.setItem("allUsersData", JSON.stringify(allUsersData));
-          
-          // Update current user's data to show they were referred
-          let userData = JSON.parse(localStorage.getItem("MTEarningData")) || {};
-          userData.referredBy = referrerId;
-          localStorage.setItem("MTEarningData", JSON.stringify(userData));
-          
-          console.log("Referral processed:", referrerId, "referred", newUserId);
-        } else {
+        if (!allUsersData[referrerId]) {
           // Initialize referrer data if not exists
           allUsersData[referrerId] = {
             referrals: 0,
             referralEarnings: 0,
-            pendingReferrals: 1
+            pendingReferrals: 0
           };
-          localStorage.setItem("allUsersData", JSON.stringify(allUsersData));
-          
-          // Update current user's data to show they were referred
-          let userData = JSON.parse(localStorage.getItem("MTEarningData")) || {};
-          userData.referredBy = referrerId;
-          localStorage.setItem("MTEarningData", JSON.stringify(userData));
         }
+        
+        // Update referrer's data
+        allUsersData[referrerId].pendingReferrals = (allUsersData[referrerId].pendingReferrals || 0) + 1;
+        
+        // Store updated data
+        localStorage.setItem("allUsersData", JSON.stringify(allUsersData));
+        
+        // Update current user's data to show they were referred
+        userData.referredBy = referrerId;
+        localStorage.setItem("MTEarningData", JSON.stringify(userData));
+        
+        console.log("Referral processed:", referrerId, "referred", newUserId);
+        
       } catch (error) {
         console.error("Error processing referral:", error);
       }
     }
     
     // Update referral counts when a referred user completes tasks
-    function updateReferralStats(referredUserId) {
+    function updateReferralStats() {
       try {
-        let allUsersData = JSON.parse(localStorage.getItem("allUsersData")) || {};
-        let referredUserData = JSON.parse(localStorage.getItem("MTEarningData")) || {};
+        if (!userData.referredBy) return;
         
-        if (referredUserData.referredBy && allUsersData[referredUserData.referredBy]) {
-          const referrerId = referredUserData.referredBy;
-          
-          // Move from pending to confirmed referrals after some tasks
-          if (referredUserData.totalTasks >= 5) { // After 5 tasks
+        let allUsersData = JSON.parse(localStorage.getItem("allUsersData")) || {};
+        const referrerId = userData.referredBy;
+        
+        if (allUsersData[referrerId]) {
+          // Move from pending to confirmed referrals after 5 tasks
+          if (userData.totalTasks === 5) {
             allUsersData[referrerId].pendingReferrals = Math.max(0, (allUsersData[referrerId].pendingReferrals || 0) - 1);
             allUsersData[referrerId].referrals = (allUsersData[referrerId].referrals || 0) + 1;
             allUsersData[referrerId].referralEarnings = (allUsersData[referrerId].referralEarnings || 0) + 0.50;
             
             // Update current user's data if they are the referrer
-            let currentUserData = JSON.parse(localStorage.getItem("MTEarningData")) || {};
-            if (currentUserData.userId === referrerId) {
-              currentUserData.pendingReferrals = allUsersData[referrerId].pendingReferrals;
-              currentUserData.referrals = allUsersData[referrerId].referrals;
-              currentUserData.referralEarnings = allUsersData[referrerId].referralEarnings;
-              localStorage.setItem("MTEarningData", JSON.stringify(currentUserData));
+            if (userData.userId === referrerId) {
+              userData.pendingReferrals = allUsersData[referrerId].pendingReferrals;
+              userData.referrals = allUsersData[referrerId].referrals;
+              userData.referralEarnings = allUsersData[referrerId].referralEarnings;
             }
             
             localStorage.setItem("allUsersData", JSON.stringify(allUsersData));
+            localStorage.setItem("MTEarningData", JSON.stringify(userData));
+            
+            showNotification("🎉 You earned $0.50 from referral!", "success");
           }
         }
       } catch (error) {
@@ -1132,7 +1151,9 @@
       // Update progress bar
       const progressPercent = (data.completed / 100 * 100);
       document.getElementById("progress-bar").style.width = progressPercent + "%";
+      document.getElementById("earn-progress-bar").style.width = progressPercent + "%";
       document.getElementById("progress-percent").innerText = progressPercent.toFixed(0) + "%";
+      document.getElementById("earn-progress-percent").innerText = progressPercent.toFixed(0) + "%";
       
       // Update profile stats
       document.getElementById("total-earned").innerText = "$" + userData.lifetimeEarning.toFixed(3);
@@ -1159,11 +1180,21 @@
       // Update earn section
       document.getElementById("ecompleted").innerText = data.completed;
       document.getElementById("eremaining").innerText = data.remaining;
-      document.getElementById("earn-progress-bar").style.width = progressPercent + "%";
-      document.getElementById("earn-progress-percent").innerText = progressPercent.toFixed(0) + "%";
       
       // Update task visualization
       updateTaskVisualization();
+      
+      // Update task button text
+      const taskBtn = document.getElementById("start-task-btn");
+      if (data.completed >= 100) {
+        taskBtn.innerHTML = '<i class="fas fa-check"></i> All Tasks Completed';
+        taskBtn.disabled = true;
+        taskBtn.style.opacity = "0.7";
+      } else {
+        taskBtn.innerHTML = '<i class="fas fa-play"></i> Start Earning ▶';
+        taskBtn.disabled = false;
+        taskBtn.style.opacity = "1";
+      }
     }
 
     function updateTaskVisualization() {
@@ -1214,6 +1245,16 @@
     function showNotification(message, type) {
       const notification = document.getElementById("notification");
       const messageElement = document.getElementById("notification-message");
+      const icon = notification.querySelector("i");
+      
+      // Set appropriate icon based on type
+      if (type === "success") {
+        icon.className = "fas fa-check-circle";
+      } else if (type === "error") {
+        icon.className = "fas fa-exclamation-circle";
+      } else if (type === "warning") {
+        icon.className = "fas fa-exclamation-triangle";
+      }
       
       messageElement.textContent = message;
       notification.className = "notification " + type;
@@ -1221,46 +1262,70 @@
       
       setTimeout(() => {
         notification.classList.remove("show");
-      }, 3000);
+      }, 4000);
     }
 
     function startTask() {
       if (data.completed >= 100) {
-        showNotification("You have completed all tasks for today!", "warning");
+        showNotification("🎉 You have completed all tasks for today! Come back tomorrow.", "success");
         return;
       }
       
-      const start = Date.now();
-      const ad = window.open(taskLinks[data.completed % taskLinks.length], "_blank");
+      const taskBtn = document.getElementById("start-task-btn");
+      taskBtn.innerHTML = '<div class="loading"></div> Opening Task...';
+      taskBtn.disabled = true;
       
-      if (!ad) {
-        showNotification("Please allow popups to complete tasks", "error");
-        return;
-      }
-      
-      const check = setInterval(() => {
-        if (ad.closed) {
-          clearInterval(check);
-          const duration = (Date.now() - start) / 1000;
-          
-          if (duration >= 45) {
-            data.completed++;
-            data.remaining = 100 - data.completed;
-            data.todaysEarning += 0.025;
-            userData.lifetimeEarning += 0.025;
-            userData.totalTasks++;
-            
-            // Update referral stats if this user was referred
-            updateReferralStats(userData.userId);
-            
-            updateStorage();
-            updateDisplay();
-            showNotification("✅ Task completed! $0.025 added to your balance.", "success");
-          } else {
-            showNotification("⏱️ You must view the ad for at least 45 seconds to complete the task!", "error");
-          }
+      setTimeout(() => {
+        const start = Date.now();
+        const randomIndex = Math.floor(Math.random() * taskLinks.length);
+        const ad = window.open(taskLinks[randomIndex], "_blank");
+        
+        if (!ad) {
+          showNotification("❌ Please allow popups to complete tasks", "error");
+          taskBtn.innerHTML = '<i class="fas fa-play"></i> Start Earning ▶';
+          taskBtn.disabled = false;
+          return;
         }
-      }, 500);
+        
+        showNotification("⏳ Task started! Stay on the page for 45 seconds.", "warning");
+        
+        currentTaskStartTime = start;
+        taskTimer = setInterval(() => {
+          if (ad.closed) {
+            clearInterval(taskTimer);
+            const duration = (Date.now() - start) / 1000;
+            
+            if (duration >= 45) {
+              completeTask();
+            } else {
+              showNotification(`⏱️ You viewed for ${Math.floor(duration)}s. Need 45s to complete!`, "error");
+            }
+            
+            taskBtn.innerHTML = '<i class="fas fa-play"></i> Start Earning ▶';
+            taskBtn.disabled = false;
+          }
+        }, 1000);
+      }, 1500);
+    }
+    
+    function completeTask() {
+      data.completed++;
+      data.remaining = 100 - data.completed;
+      data.todaysEarning += 0.025;
+      userData.lifetimeEarning += 0.025;
+      userData.totalTasks++;
+      
+      // Update referral stats if this user was referred
+      updateReferralStats();
+      
+      updateStorage();
+      updateDisplay();
+      
+      if (data.completed === 100) {
+        showNotification("🎊 Congratulations! You completed all 100 tasks today! 🎊", "success");
+      } else {
+        showNotification("✅ Task completed! +$0.025. Completed: " + data.completed + "/100", "success");
+      }
     }
 
     function submitWithdrawal() {
@@ -1268,28 +1333,28 @@
       const method = document.getElementById("withdraw-method").value;
       const address = document.getElementById("withdraw-address").value;
       
-      if (isNaN(amount)) {
-        showNotification("Please enter a valid amount", "error");
+      if (isNaN(amount) || amount <= 0) {
+        showNotification("❌ Please enter a valid amount", "error");
         return;
       }
       if (amount < 30) {
-        showNotification("Minimum withdrawal amount is $30", "error");
+        showNotification("❌ Minimum withdrawal amount is $30", "error");
         return;
       }
       if (amount > userData.lifetimeEarning) {
-        showNotification("Insufficient balance", "error");
+        showNotification("❌ Insufficient balance", "error");
         return;
       }
       if (userData.referrals < 10) {
-        showNotification("You need at least 10 referrals to withdraw", "error");
+        showNotification(`❌ You need ${10 - userData.referrals} more referrals to withdraw`, "error");
         return;
       }
       if (method === "Select a method") {
-        showNotification("Please select a withdrawal method", "error");
+        showNotification("❌ Please select a withdrawal method", "error");
         return;
       }
       if (!address) {
-        showNotification("Please enter your withdrawal address", "error");
+        showNotification("❌ Please enter your withdrawal address", "error");
         return;
       }
       
@@ -1298,7 +1363,13 @@
       userData.withdrew += amount;
       updateStorage();
       updateDisplay();
-      showNotification("Withdrawal request submitted successfully! It will be processed within 24-48 hours.", "success");
+      
+      // Reset form
+      document.getElementById("withdraw-amount").value = "";
+      document.getElementById("withdraw-address").value = "";
+      document.getElementById("withdraw-method").selectedIndex = 0;
+      
+      showNotification("✅ Withdrawal request submitted! Processing in 24-48 hours.", "success");
     }
 
     function show(section) {
@@ -1331,35 +1402,33 @@
     function copyReferralLink() {
       const refLink = `https://t.me/Daily_Earning_545_Bot?start=ref_${userId}`;
       navigator.clipboard.writeText(refLink)
-        .then(() => showNotification("✅ Referral link copied! You earn $0.50 for each successful referral.", "success"))
-        .catch(() => showNotification("Failed to copy link", "error"));
+        .then(() => showNotification("✅ Referral link copied! Earn $0.50 per referral.", "success"))
+        .catch(() => {
+          // Fallback for older browsers
+          const textArea = document.createElement("textarea");
+          textArea.value = refLink;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          showNotification("✅ Referral link copied! Earn $0.50 per referral.", "success");
+        });
     }
     
     function shareReferralLink() {
       const refLink = `https://t.me/Daily_Earning_545_Bot?start=ref_${userId}`;
+      const shareText = `Join Daily Earning545 and start earning money by completing simple tasks! Use my referral link: ${refLink}`;
       
       // Check if we're in a Telegram environment
       if (window.Telegram && window.Telegram.WebApp) {
-        // Use Telegram's share functionality
-        window.Telegram.WebApp.share(refLink, { title: 'Earn with Daily Earning545' }, (success) => {
-          if (!success) {
-            // Fallback to copy if sharing fails
-            copyReferralLink();
-          }
-        });
+        window.Telegram.WebApp.share(shareText);
       } else if (navigator.share) {
-        // Use Web Share API for browsers that support it
         navigator.share({
           title: 'Earn with Daily Earning545',
-          text: 'Join Daily Earning545 and start earning money by completing simple tasks!',
+          text: 'Join Daily Earning545 and start earning money!',
           url: refLink
-        })
-        .catch((error) => {
-          console.error('Sharing failed:', error);
-          copyReferralLink();
-        });
+        }).catch(() => copyReferralLink());
       } else {
-        // Fallback to copying the link
         copyReferralLink();
       }
     }
@@ -1370,7 +1439,7 @@
       userData = ud;
       data = d;
       
-      // Check if we need to initialize allUsersData for the current user
+      // Initialize allUsersData for current user if needed
       let allUsersData = JSON.parse(localStorage.getItem("allUsersData")) || {};
       if (!allUsersData[userData.userId]) {
         allUsersData[userData.userId] = {
@@ -1382,10 +1451,18 @@
       }
       
       updateDisplay();
+      
+      // Show welcome message
+      setTimeout(() => {
+        if (data.completed === 0) {
+          showNotification("🚀 Start completing tasks to earn money today!", "success");
+        }
+      }, 1000);
     });
   </script>
   
   <script>
+    // Geo-location check
     fetch("https://ipapi.co/json/")
       .then(response => response.json())
       .then(data => {
@@ -1396,7 +1473,19 @@
             (country === "IN" && timezone === "Asia/Kolkata") ) {
           console.log("Access Allowed:", country, timezone);
         } else {
-          document.body.innerHTML = "<h2 style='color:red;text-align:center;'>❌ Access Denied ❌<br>Daily Earning545 Bot এ VPN দিয়ে কাজ করতে পারবে না। ⚠ আপনি যদি VPN ব‍্যবহার করেন, অনুগ্রহ করে VPN বন্ধ করে আবার চেষ্টা করুন ধন্যবাদ🌺</h2>";
+          document.body.innerHTML = `
+            <div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; padding: 20px;">
+              <div>
+                <h1 style="font-size: 2rem; margin-bottom: 20px;">❌ Access Denied ❌</h1>
+                <p style="font-size: 1.2rem; line-height: 1.6;">
+                  Daily Earning545 Bot এ VPN দিয়ে কাজ করতে পারবে না।<br>
+                  ⚠ আপনি যদি VPN ব‍্যবহার করেন, অনুগ্রহ করে VPN বন্ধ করে আবার চেষ্টা করুন<br>
+                  ধন্যবাদ 🌺
+                </p>
+                <p style="margin-top: 20px; opacity: 0.8;">Your Location: ${country}, ${timezone}</p>
+              </div>
+            </div>
+          `;
         }
       })
       .catch(error => {
